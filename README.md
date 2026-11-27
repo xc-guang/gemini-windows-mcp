@@ -6,11 +6,13 @@
 
 - **原生兼容 Gemini App**：完整实现标准 OAuth 2.0（含动态客户端注册与 PKCE）和 Streamable HTTP 协议。
 - **零成本永久域名**：基于 Tailscale Funnel 免费获取永久固定 HTTPS 域名。
-- **双重安全防护**：
-  - **目录沙盒**：严格限制只能访问指定的 `work_dir`，拦截越权路径。
-  - **命令白名单**：仅允许执行白名单内的开发命令（默认 `git` / `python` / `pip` / `node` / `npm` / `pytest` / `uv`），禁止 Shell 注入字符，单次执行超时 30 秒。
+- **灵活的目录访问与命令防护**：
+  - **全盘路径支持**：文件操作工具（`list_files`、`read_file`、`write_file`、`read_image`）支持访问本机任意绝对路径（可跨目录、跨盘符）；传入相对路径时默认基于 `config.json` 中的 `work_dir`。
+  - **命令白名单**：`run_command` 默认在 `work_dir` 中执行，仅允许运行白名单内的开发命令（默认 `git` / `python` / `pip` / `node` / `npm` / `pytest` / `uv`），禁止 Shell 注入字符，单次执行超时 30 秒。
 - **开箱即用工具**：`list_files`、`read_file`、`write_file`、`read_image`、`run_command`。
 - **静默后台运行**：自动配置 Windows 任务计划程序，使用 `pythonw.exe` 无黑框自启。
+
+> **安全提示**：由于已开放本机任意绝对路径的读写权限，请务必在 `config.json` 中使用高强度 OAuth 授权密码，避免操作 `C:\Windows` 等系统关键目录；长期不使用时建议执行 `tailscale funnel --https=443 off` 关闭公网穿透。
 
 ## 快速开始（3 分钟）
 
@@ -46,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 - `@Windows PC Control 列出工作目录的文件`
 - `@Windows PC Control 帮我写一个 python 脚本并运行`
-- `@Windows PC Control 读取 demo.png，告诉我图里是什么`
+- `@Windows PC Control 读取 D:\Images\demo.png，告诉我图里是什么`（支持任意绝对路径）
 
 ## 常用维护命令
 
