@@ -1,4 +1,4 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ScriptPath = Join-Path $ProjectDir "win_mcp_server.py"
@@ -28,7 +28,7 @@ $PublicUrl = "https://$DnsName"
 
 Write-Host "`n=== 3. 生成配置文件 config.json ===" -ForegroundColor Cyan
 $DefaultWorkDir = if (Test-Path "D:\") { "D:\GeminiWorkspace" } else { Join-Path $ProjectDir "GeminiWorkspace" }
-$WorkDir = Read-Host "请输入默认工作目录 (同时作为默认可写目录，直接回车默认: $DefaultWorkDir)"
+$WorkDir = Read-Host "请输入默认工作目录 (直接回车默认: $DefaultWorkDir)"
 if ([string]::IsNullOrWhiteSpace($WorkDir)) { $WorkDir = $DefaultWorkDir }
 
 $AuthPassword = Read-Host "请设置 OAuth 授权密码 (直接回车自动生成随机强密码)"
@@ -38,10 +38,13 @@ if ([string]::IsNullOrWhiteSpace($AuthPassword)) {
     $AuthPassword = [Convert]::ToBase64String($Bytes)
 }
 
+$WritableDirs = if ($WorkDir -match '^[Cc]:') { @($WorkDir) } else { @() }
+
 $ConfigObj = @{
     public_url       = $PublicUrl
     work_dir         = $WorkDir
-    writable_dirs    = @($WorkDir)
+    readonly_drives  = @("C:")
+    writable_dirs    = $WritableDirs
     denied_paths     = @(
         "C:\Windows",
         "C:\Program Files",
@@ -74,5 +77,5 @@ Write-Host "部署完成！请前往 gemini.google.com 绑定：" -ForegroundCol
 Write-Host "MCP Server URL : $PublicUrl/mcp" -ForegroundColor Yellow
 Write-Host "授权密码       : $AuthPassword" -ForegroundColor Yellow
 Write-Host "默认工作目录   : $WorkDir"
-Write-Host "可写目录       : $WorkDir (可在 config.json 的 writable_dirs 中追加)"
+Write-Host "权限策略       : 仅限制 C 盘（默认只读 + 敏感目录禁止访问），其他盘符自由读写"
 Write-Host "==========================================" -ForegroundColor Green

@@ -57,12 +57,15 @@ DENIED_PATHS = [CONFIG_FILE, TOKEN_STORE] + [
     _resolve_config_path(p)
     for p in CONFIG.get("denied_paths", DEFAULT_DENIED_PATHS)
 ]
-_raw_writable = CONFIG.get("writable_dirs")
-WRITABLE_DIRS = (
-    [WORK_DIR]
-    if _raw_writable is None
-    else [_resolve_config_path(p) for p in _raw_writable]
-)
+READONLY_DRIVES = {
+    d.strip().rstrip("\\/").upper()
+    for d in CONFIG.get("readonly_drives", ["C:"])
+    if d.strip()
+}
+WRITABLE_DIRS = [
+    _resolve_config_path(p)
+    for p in CONFIG.get("writable_dirs", [])
+]
 FORBIDDEN_CHARS = {";", "&", "|", ">", "<", "`", "$", "\n", "\r"}
 
 AUTH_CODES: dict[str, dict] = {}
@@ -102,11 +105,10 @@ def _safe_path(rel_path: str, write: bool = False) -> Path:
         if target == denied or target.is_relative_to(denied):
             raise ValueError(f"拒绝访问受保护路径: {target}")
 
-    if write:
+    if write and target.drive.upper() in READONLY_DRIVES:
         if not any(target == wd or target.is_relative_to(wd) for wd in WRITABLE_DIRS):
-            allowed_str = ", ".join(str(wd) for wd in WRITABLE_DIRS)
             raise ValueError(
-                f"拒绝写入受限目录 ({target})。当前仅允许写入: {allowed_str}"
+                f"拒绝写入受限盘符 ({target.drive}): {target}。其他盘符可自由写入，或在 config.json 的 writable_dirs 中放行。"
             )
 
     return target
@@ -127,7 +129,7 @@ def read_file(path: str) -> str:
 
 @mcp.tool()
 def write_file(path: str, content: str) -> str:
-    """向可写目录内写入文本文件（自动创建父目录，受 writable_dirs 与黑名单限制）"""
+    """向指定路径写入文本文件（自动创建父目录；除 C 盘等受限盘符外，其他盘符均可自由写入）"""
     target = _safe_path(path, write=True)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
