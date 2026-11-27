@@ -24,7 +24,7 @@
 以**管理员身份**打开 PowerShell，执行：
 
 ```powershell
-git clone https://github.com/<你的用户名>/gemini-windows-mcp.git
+git clone https://github.com/xc-guang/gemini-windows-mcp.git
 cd gemini-windows-mcp
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
