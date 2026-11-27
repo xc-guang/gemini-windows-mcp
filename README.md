@@ -7,10 +7,10 @@
 - **原生兼容 Gemini App**：完整实现标准 OAuth 2.0（含动态客户端注册与 PKCE）和 Streamable HTTP 协议。
 - **零成本永久域名**：基于 Tailscale Funnel 免费获取永久固定 HTTPS 域名。
 - **仅限制 C 盘的分级权限防护**：
-  - **非 C 盘（D 盘、E 盘等）自由读写**：`list_files`、`read_file`、`write_file`、`read_image` 均可直接通过绝对路径自由读写（仅自动保护服务自身的 `config.json` 与 `.mcp_tokens.json`）。
+  - **非 C 盘（D 盘、E 盘等）自由读写**：`list_files`、`read_file`、`write_file`、`write_binary_file`、`save_image_from_url`、`read_image` 均可直接通过绝对路径自由读写（仅自动保护服务自身的 `config.json` 与 `.mcp_tokens.json`）。
   - **C 盘只读 + 敏感路径黑名单**：默认将 `C:` 设为只读盘符（`readonly_drives`），禁止写入 C 盘；同时彻底拦截 `C:\Windows`、`Program Files`、SSH/云凭证、浏览器数据目录等高危路径（可在 `config.json` 的 `denied_paths` 中自定义）。
   - **命令白名单**：`run_command` 默认在 `work_dir`（默认 `D:\GeminiWorkspace`）中执行，仅允许运行白名单内的开发命令（默认 `git` / `python` / `pip` / `node` / `npm` / `pytest` / `uv`），禁止 Shell 注入字符，单次执行超时 30 秒。
-- **开箱即用工具**：`list_files`、`read_file`、`write_file`、`read_image`、`run_command`。
+- **开箱即用工具**：`list_files`、`read_file`、`write_file`、`write_binary_file`、`save_image_from_url`、`read_image`、`run_command`。
 - **静默后台运行**：自动配置 Windows 任务计划程序，使用 `pythonw.exe` 无黑框自启。
 
 ## 快速开始（3 分钟）
@@ -48,6 +48,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - `@Windows PC Control 列出工作目录的文件`
 - `@Windows PC Control 帮我写一个 python 脚本并运行`
 - `@Windows PC Control 读取 D:\Images\demo.png，告诉我图里是什么`（支持跨盘访问）
+- `@Windows PC Control 把 https://example.com/pic.png 下载保存到 D:\Images\pic.png`
 
 ### 自定义权限配置（`config.json`）
 

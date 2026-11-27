@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import json
 import os
@@ -10,6 +11,7 @@ import sys
 import time
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
+from urllib.request import Request as UrlRequest, urlopen
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP, Image
@@ -67,6 +69,7 @@ WRITABLE_DIRS = [
     for p in CONFIG.get("writable_dirs", [])
 ]
 FORBIDDEN_CHARS = {";", "&", "|", ">", "<", "`", "$", "\n", "\r"}
+MAX_BINARY_BYTES = 20 * 1024 * 1024  # 20 MB
 
 AUTH_CODES: dict[str, dict] = {}
 
@@ -134,6 +137,47 @@ def write_file(path: str, content: str) -> str:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return f"已写入: {target}"
+
+
+@mcp.tool()
+def write_binary_file(path: str, base64_data: str) -> str:
+    """将 Base64 编码的二进制数据（如图片、PDF 等）写入指定路径（自动创建父目录，单次上限 20MB）"""
+    target = _safe_path(path, write=True)
+    payload = base64_data.strip()
+    if payload.startswith("data:") and "," in payload:
+        payload = payload.split(",", 1)[1]
+    try:
+        raw = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError) as e:
+        raise ValueError(f"Base64 解码失败: {e}") from e
+    if len(raw) > MAX_BINARY_BYTES:
+        raise ValueError(f"文件体积超过限制（最大 {MAX_BINARY_BYTES // (1024 * 1024)} MB）")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw)
+    return f"已写入二进制文件: {target} ({len(raw)} bytes)"
+
+
+@mcp.tool()
+def save_image_from_url(url: str, path: str) -> str:
+    """从 HTTP/HTTPS 链接下载图片并保存到指定路径（自动创建父目录，单次上限 20MB）"""
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("仅支持合法的 http 或 https 图片链接")
+
+    target = _safe_path(path, write=True)
+    req = UrlRequest(
+        url.strip(),
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gemini-MCP/1.0"},
+    )
+    with urlopen(req, timeout=30) as resp:
+        data = resp.read(MAX_BINARY_BYTES + 1)
+        if len(data) > MAX_BINARY_BYTES:
+            raise ValueError(f"下载文件超过限制（最大 {MAX_BINARY_BYTES // (1024 * 1024)} MB）")
+        content_type = resp.headers.get("Content-Type", "unknown")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return f"已下载保存: {target} ({len(data)} bytes, Content-Type: {content_type})"
 
 
 @mcp.tool()
