@@ -67,37 +67,35 @@ mcp = FastMCP(
 
 
 def _safe_path(rel_path: str) -> Path:
-    target = (WORK_DIR / rel_path).resolve()
-    if not target.is_relative_to(WORK_DIR):
-        raise ValueError(f"拒绝访问工作目录 ({WORK_DIR}) 以外的路径")
-    return target
+    p = Path(rel_path)
+    return p.resolve() if p.is_absolute() else (WORK_DIR / p).resolve()
 
 
 @mcp.tool()
 def list_files(sub_dir: str = ".") -> list[str]:
-    """列出工作目录下指定子目录的文件和文件夹"""
+    """列出指定目录的文件和文件夹（支持绝对路径，默认基于工作目录）"""
     target = _safe_path(sub_dir)
     return [p.name + ("/" if p.is_dir() else "") for p in sorted(target.iterdir())]
 
 
 @mcp.tool()
 def read_file(path: str) -> str:
-    """读取工作目录内的文本文件内容"""
+    """读取指定路径的文本文件内容"""
     return _safe_path(path).read_text(encoding="utf-8")
 
 
 @mcp.tool()
 def write_file(path: str, content: str) -> str:
-    """向工作目录内写入文本文件（自动创建父目录）"""
+    """向指定路径写入文本文件（自动创建父目录）"""
     target = _safe_path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
-    return f"已写入: {target.relative_to(WORK_DIR)}"
+    return f"已写入: {target}"
 
 
 @mcp.tool()
 def read_image(path: str) -> Image:
-    """读取工作目录内的图片文件（支持 jpg/png/webp 等）"""
+    """读取指定路径的图片文件（支持 jpg/png/webp 等）"""
     return Image(path=str(_safe_path(path)))
 
 
