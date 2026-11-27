@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ScriptPath = Join-Path $ProjectDir "win_mcp_server.py"
@@ -27,7 +27,7 @@ if (-not $DnsName) {
 $PublicUrl = "https://$DnsName"
 
 Write-Host "`n=== 3. 生成配置文件 config.json ===" -ForegroundColor Cyan
-$DefaultWorkDir = Join-Path $env:USERPROFILE "GeminiWorkspace"
+$DefaultWorkDir = if (Test-Path "D:\") { "D:\GeminiWorkspace" } else { Join-Path $ProjectDir "GeminiWorkspace" }
 $WorkDir = Read-Host "请输入默认工作目录 (同时作为默认可写目录，直接回车默认: $DefaultWorkDir)"
 if ([string]::IsNullOrWhiteSpace($WorkDir)) { $WorkDir = $DefaultWorkDir }
 
