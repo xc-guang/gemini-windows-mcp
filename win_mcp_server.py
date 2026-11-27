@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 import secrets
 import shlex
 import shutil
@@ -22,18 +23,45 @@ BASE_DIR = Path(__file__).parent.resolve()
 CONFIG_FILE = BASE_DIR / "config.json"
 TOKEN_STORE = BASE_DIR / ".mcp_tokens.json"
 
+DEFAULT_DENIED_PATHS = [
+    r"C:\Windows",
+    r"C:\Program Files",
+    r"C:\Program Files (x86)",
+    r"C:\ProgramData",
+    r"%USERPROFILE%\.ssh",
+    r"%USERPROFILE%\.aws",
+    r"%USERPROFILE%\.gnupg",
+    r"%LOCALAPPDATA%\Google\Chrome\User Data",
+    r"%LOCALAPPDATA%\Microsoft\Edge\User Data",
+]
+
 if not CONFIG_FILE.exists():
     raise FileNotFoundError("未找到 config.json，请先运行 install.ps1 生成配置文件。")
+
+
+def _resolve_config_path(raw: str) -> Path:
+    return Path(os.path.expandvars(raw)).expanduser().resolve()
+
 
 CONFIG = json.loads(CONFIG_FILE.read_text(encoding="utf-8-sig"))
 PUBLIC_URL = CONFIG["public_url"].rstrip("/")
 PUBLIC_HOST = urlparse(PUBLIC_URL).hostname
-WORK_DIR = Path(CONFIG["work_dir"]).resolve()
+WORK_DIR = _resolve_config_path(CONFIG["work_dir"])
 WORK_DIR.mkdir(parents=True, exist_ok=True)
 AUTH_PASSWORD = CONFIG["auth_password"]
 PORT = int(CONFIG.get("port", 8000))
 ALLOWED_COMMANDS = set(
     CONFIG.get("allowed_commands", ["git", "python", "pip", "node", "npm", "pytest", "uv"])
+)
+DENIED_PATHS = [CONFIG_FILE, TOKEN_STORE] + [
+    _resolve_config_path(p)
+    for p in CONFIG.get("denied_paths", DEFAULT_DENIED_PATHS)
+]
+_raw_writable = CONFIG.get("writable_dirs")
+WRITABLE_DIRS = (
+    [WORK_DIR]
+    if _raw_writable is None
+    else [_resolve_config_path(p) for p in _raw_writable]
 )
 FORBIDDEN_CHARS = {";", "&", "|", ">", "<", "`", "$", "\n", "\r"}
 
@@ -66,28 +94,41 @@ mcp = FastMCP(
 )
 
 
-def _safe_path(rel_path: str) -> Path:
-    p = Path(rel_path)
-    return p.resolve() if p.is_absolute() else (WORK_DIR / p).resolve()
+def _safe_path(rel_path: str, write: bool = False) -> Path:
+    p = Path(os.path.expandvars(rel_path)).expanduser()
+    target = p.resolve() if p.is_absolute() else (WORK_DIR / p).resolve()
+
+    for denied in DENIED_PATHS:
+        if target == denied or target.is_relative_to(denied):
+            raise ValueError(f"拒绝访问受保护路径: {target}")
+
+    if write:
+        if not any(target == wd or target.is_relative_to(wd) for wd in WRITABLE_DIRS):
+            allowed_str = ", ".join(str(wd) for wd in WRITABLE_DIRS)
+            raise ValueError(
+                f"拒绝写入受限目录 ({target})。当前仅允许写入: {allowed_str}"
+            )
+
+    return target
 
 
 @mcp.tool()
 def list_files(sub_dir: str = ".") -> list[str]:
-    """列出指定目录的文件和文件夹（支持绝对路径，默认基于工作目录）"""
-    target = _safe_path(sub_dir)
+    """列出指定目录的文件和文件夹（支持绝对路径，受敏感路径黑名单保护）"""
+    target = _safe_path(sub_dir, write=False)
     return [p.name + ("/" if p.is_dir() else "") for p in sorted(target.iterdir())]
 
 
 @mcp.tool()
 def read_file(path: str) -> str:
-    """读取指定路径的文本文件内容"""
-    return _safe_path(path).read_text(encoding="utf-8")
+    """读取指定路径的文本文件内容（支持绝对路径，受敏感路径黑名单保护）"""
+    return _safe_path(path, write=False).read_text(encoding="utf-8")
 
 
 @mcp.tool()
 def write_file(path: str, content: str) -> str:
-    """向指定路径写入文本文件（自动创建父目录）"""
-    target = _safe_path(path)
+    """向可写目录内写入文本文件（自动创建父目录，受 writable_dirs 与黑名单限制）"""
+    target = _safe_path(path, write=True)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return f"已写入: {target}"
@@ -95,8 +136,8 @@ def write_file(path: str, content: str) -> str:
 
 @mcp.tool()
 def read_image(path: str) -> Image:
-    """读取指定路径的图片文件（支持 jpg/png/webp 等）"""
-    return Image(path=str(_safe_path(path)))
+    """读取指定路径的图片文件（支持 jpg/png/webp 等，受敏感路径黑名单保护）"""
+    return Image(path=str(_safe_path(path, write=False)))
 
 
 @mcp.tool()

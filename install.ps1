@@ -28,7 +28,7 @@ $PublicUrl = "https://$DnsName"
 
 Write-Host "`n=== 3. 生成配置文件 config.json ===" -ForegroundColor Cyan
 $DefaultWorkDir = Join-Path $env:USERPROFILE "GeminiWorkspace"
-$WorkDir = Read-Host "请输入默认工作目录 (用于相对路径与命令执行，直接回车默认: $DefaultWorkDir)"
+$WorkDir = Read-Host "请输入默认工作目录 (同时作为默认可写目录，直接回车默认: $DefaultWorkDir)"
 if ([string]::IsNullOrWhiteSpace($WorkDir)) { $WorkDir = $DefaultWorkDir }
 
 $AuthPassword = Read-Host "请设置 OAuth 授权密码 (直接回车自动生成随机强密码)"
@@ -41,6 +41,18 @@ if ([string]::IsNullOrWhiteSpace($AuthPassword)) {
 $ConfigObj = @{
     public_url       = $PublicUrl
     work_dir         = $WorkDir
+    writable_dirs    = @($WorkDir)
+    denied_paths     = @(
+        "C:\Windows",
+        "C:\Program Files",
+        "C:\Program Files (x86)",
+        "C:\ProgramData",
+        "%USERPROFILE%\.ssh",
+        "%USERPROFILE%\.aws",
+        "%USERPROFILE%\.gnupg",
+        "%LOCALAPPDATA%\Google\Chrome\User Data",
+        "%LOCALAPPDATA%\Microsoft\Edge\User Data"
+    )
     auth_password    = $AuthPassword
     port             = 8000
     allowed_commands = @("git", "python", "pip", "node", "npm", "pytest", "uv")
@@ -62,4 +74,5 @@ Write-Host "部署完成！请前往 gemini.google.com 绑定：" -ForegroundCol
 Write-Host "MCP Server URL : $PublicUrl/mcp" -ForegroundColor Yellow
 Write-Host "授权密码       : $AuthPassword" -ForegroundColor Yellow
 Write-Host "默认工作目录   : $WorkDir"
+Write-Host "可写目录       : $WorkDir (可在 config.json 的 writable_dirs 中追加)"
 Write-Host "==========================================" -ForegroundColor Green
