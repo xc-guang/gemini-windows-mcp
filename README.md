@@ -11,6 +11,7 @@
   - **C 盘只读 + 敏感路径黑名单**：默认将 `C:` 设为只读盘符（`readonly_drives`），禁止写入 C 盘；同时彻底拦截 `C:\Windows`、`Program Files`、SSH/云凭证、浏览器数据目录等高危路径（可在 `config.json` 的 `denied_paths` 中自定义）。
   - **命令白名单**：`run_command` 默认在 `work_dir`（默认 `D:\GeminiWorkspace`）中执行，仅允许运行白名单内的开发命令（默认 `git` / `python` / `pip` / `node` / `npm` / `pytest` / `uv`），禁止 Shell 注入字符，单次执行超时 30 秒。
 - **开箱即用工具**：`list_files`、`read_file`、`write_file`、`write_binary_file`、`save_image_from_url`、`read_image`、`run_command`。
+- **配套 GitHub Skill 集成工作流**：内置 `skills/github-tool-mcp-integrator/SKILL.md`，支持自动从 GitHub 下载开源 Skill 到本地 `.agents/skills` 目录并调用运行、克隆/封装 GitHub 脚本为 MCP 工具，以及接入第三方开源 MCP Server。
 - **静默后台运行**：自动配置 Windows 任务计划程序，使用 `pythonw.exe` 无黑框自启。
 
 ## 快速开始（3 分钟）
@@ -49,6 +50,20 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - `@Windows PC Control 帮我写一个 python 脚本并运行`
 - `@Windows PC Control 读取 D:\Images\demo.png，告诉我图里是什么`（支持跨盘访问）
 - `@Windows PC Control 把 https://example.com/pic.png 下载保存到 D:\Images\pic.png`
+
+### 配套 Skill：GitHub Skill 下载与调用（`skills/github-tool-mcp-integrator`）
+
+仓库内置 [`skills/github-tool-mcp-integrator/SKILL.md`](skills/github-tool-mcp-integrator/SKILL.md)，配合 `Windows PC Control` 实现以下能力：
+
+- **下载并调用 GitHub 开源 Skill**：自动通过 `git clone` 将 GitHub 上的开源 Skill 拉取至 D 盘临时目录，安装到指定本地目录（如 `.agents/skills/<skill-name>`）或导入为 Gemini 自定义技能，并直接运行脚本验证环境可用性。
+- **运行与封装 GitHub 工具脚本**：在 D 盘克隆并执行 Python / Node.js / `uv` 工具脚本；高频工具可直接封装为新的 `@mcp.tool()` 写入 `win_mcp_server.py`。
+- **接入第三方开源 MCP Server**：按统一规范在 D 盘部署独立端口的开源 MCP Server，并通过 Tailscale Funnel 接入 Gemini Custom apps。
+
+使用示例：
+
+- `搜索一个像素人物操作 skill 放入 D:\project\.agents\skills 并测试运行`
+- `帮我把这个 GitHub 仓库里的 SKILL.md 导入成我的自定义技能：<仓库链接>`
+- `把这个 GitHub Python 工具克隆到 D 盘运行，并封装进 win_mcp_server.py：<仓库链接>`
 
 ### 自定义权限配置（`config.json`）
 
